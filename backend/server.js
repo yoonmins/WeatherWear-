@@ -24,6 +24,10 @@ app.get('/api', (req, res) => {
   res.json({ message: 'Welcome to WeatherWear API' });
 });
 
+// Weather API routes
+const weatherRoutes = require('./routes/weatherRoutes');
+app.use('/api/weather', weatherRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
