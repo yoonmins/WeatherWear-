@@ -7,6 +7,7 @@ const axios = require('axios');
 
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 const WEATHER_API_BASE_URL = 'https://api.openweathermap.org/data/2.5';
+const { getClothesByTempRange } = require('../example/clother');
 
 /**
  * 도시 이름으로 현재 날씨 정보 가져오기
@@ -205,57 +206,67 @@ function handleWeatherApiError(error) {
  * @returns {Object} 옷차림 추천 정보
  */
 function getClothingRecommendation(temperature) {
+
+  // 기존 카테고리/텍스트 추천
+  let base = {};
   if (temperature >= 28) {
-    return {
+    base = {
       category: '매우 더움',
       recommendation: ['민소매', '반팔', '반바지', '원피스', '샌들'],
       advice: '가볍고 시원한 옷을 착용하세요. 자외선 차단에 신경쓰세요.'
     };
   } else if (temperature >= 23) {
-    return {
+    base = {
       category: '더움',
       recommendation: ['반팔', '얇은 셔츠', '반바지', '면바지', '운동화'],
       advice: '통풍이 잘 되는 옷을 선택하세요.'
     };
   } else if (temperature >= 20) {
-    return {
+    base = {
       category: '약간 더움',
       recommendation: ['얇은 가디건', '긴팔', '면바지', '청바지'],
       advice: '일교차에 대비해 얇은 겉옷을 챙기세요.'
     };
   } else if (temperature >= 17) {
-    return {
+    base = {
       category: '선선함',
       recommendation: ['가디건', '니트', '맨투맨', '청바지', '면바지'],
       advice: '가볍게 걸칠 수 있는 옷을 준비하세요.'
     };
   } else if (temperature >= 12) {
-    return {
+    base = {
       category: '쌀쌀함',
       recommendation: ['자켓', '가디건', '청바지', '면바지', '스니커즈'],
       advice: '가을 느낌의 따뜻한 옷차림이 좋습니다.'
     };
   } else if (temperature >= 9) {
-    return {
+    base = {
       category: '추움',
       recommendation: ['트렌치 코트', '야상', '니트', '청바지', '스니커즈'],
       advice: '아우터를 꼭 챙기세요.'
     };
   } else if (temperature >= 5) {
-    return {
+    base = {
       category: '매우 추움',
       recommendation: ['코트', '가죽 자켓', '히트텍', '니트', '목도리'],
       advice: '따뜻한 겨울 옷을 착용하세요.'
     };
   } else {
-    return {
+    base = {
       category: '한파',
       recommendation: ['패딩', '두꺼운 코트', '목도리', '장갑', '방한화'],
       advice: '최대한 두껍게 입고 외출을 자제하세요.'
     };
   }
-}
 
+  // 🧥 이미지 기반 추천 → clothes.js 호출
+  const imageItems = getClothesByTempRange(temperature);
+
+  return {
+    ...base,
+    images: imageItems   // 이미지 배열 추가
+  };
+}
 module.exports = {
   getCurrentWeatherByCity,
   getCurrentWeatherByCoords,
