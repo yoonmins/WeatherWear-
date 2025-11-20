@@ -206,7 +206,6 @@ function handleWeatherApiError(error) {
  * @returns {Object} 옷차림 추천 정보
  */
 function getClothingRecommendation(temperature) {
-
   // 기존 카테고리/텍스트 추천
   let base = {};
   if (temperature >= 28) {
@@ -259,19 +258,86 @@ function getClothingRecommendation(temperature) {
     };
   }
 
-  // 🧥 이미지 기반 추천 → clothes.js 호출
+  // 🧥 이미지 기반 추천 → clothes.js(or clother.js) 호출
   const imageItems = getClothesByTempRange(temperature);
 
-  base.extra = "이 데이터는 테스트용으로 추가되었습니다.";
+  // 테스트용 필드
+  base.extra = '이 데이터는 테스트용으로 추가되었습니다.';
 
   return {
     ...base,
-    images: imageItems   // 이미지 배열 추가
+    images: imageItems // 이미지 배열 추가
   };
 }
+
+/**
+ * 온도 + 날씨 조건을 함께 고려한 고급 옷차림 추천
+ */
+function getClothingRecommendationAdvanced({
+  temperature,
+  weatherMain,
+  windSpeed = 0,
+  humidity = 0,
+  isNight = false
+}) {
+  // 기본 온도 기반 추천
+  const base = getClothingRecommendation(temperature);
+
+  const accessories = [];
+  const tips = [];
+
+  // 비 / 이슬비
+  if (weatherMain === 'Rain' || weatherMain === 'Drizzle') {
+    accessories.push('우산', '방수 재킷');
+    tips.push('비 예보가 있으니 우산과 방수되는 아우터를 준비하세요.');
+  }
+
+  // 눈
+  if (weatherMain === 'Snow') {
+    accessories.push('방수 부츠', '두꺼운 양말');
+    tips.push('눈길 미끄럼에 주의하세요.');
+  }
+
+  // 강풍
+  if (windSpeed >= 8) {
+    accessories.push('모자', '귀마개');
+    tips.push('바람이 강해 체감 온도가 더 낮게 느껴집니다.');
+  }
+
+  // 높은 습도
+  if (humidity >= 80 && temperature >= 24) {
+    tips.push('습도가 높아 끈적거릴 수 있으니 통풍이 잘 되는 옷을 추천합니다.');
+  }
+
+  // 밤
+  if (isNight) {
+    tips.push('밤에는 일교차가 커서 체감이 더 춥습니다.');
+  }
+
+  const coldRisk = calculateColdRisk(temperature, windSpeed);
+
+  return {
+    ...base,
+    riskLevel: coldRisk,
+    accessories,
+    extraTips: tips
+  };
+}
+
+/**
+ * 체감 추위 위험도 계산
+ */
+function calculateColdRisk(temperature, windSpeed) {
+  const feels = temperature - windSpeed * 0.7;
+  if (feels <= 0) return 'HIGH';
+  if (feels <= 10) return 'MEDIUM';
+  return 'LOW';
+}
+
 module.exports = {
   getCurrentWeatherByCity,
   getCurrentWeatherByCoords,
   getForecastByCity,
-  getClothingRecommendation
+  getClothingRecommendation,
+  getClothingRecommendationAdvanced
 };
