@@ -262,6 +262,8 @@ function getClothingRecommendation(temperature) {
   // 🧥 이미지 기반 추천 → clothes.js 호출
   const imageItems = getClothesByTempRange(temperature);
 
+  base.extra = "이 데이터는 테스트용으로 추가되었습니다.";
+
   return {
     ...base,
     images: imageItems   // 이미지 배열 추가
