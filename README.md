@@ -6,17 +6,26 @@
 ---
 
 ## 📋 목차
+- [주요 기능](#-주요-기능)
 - [시작하기](#-시작하기)
 - [프로젝트 구조](#-프로젝트-구조)
 - [기술 스택](#-기술-스택)
 - [설치 방법](#-설치-방법)
 - [실행 방법](#-실행-방법)
 - [환경 변수 설정](#-환경-변수-설정)
+- [보안 수칙](#-보안-수칙)
 - [API 문서](#-api-문서)
 - [개발 가이드](#-개발-가이드)
 - [트러블슈팅](#-트러블슈팅)
 
 ---
+
+## ✨ 주요 기능
+- 국내 주요 15+ 도시 실시간 날씨 표시 및 지도 마커 색상(온도 구간) 매핑
+- 도시 클릭 시 당일 상세 + 일주일치 옷차림을 하나의 카드에서 확인
+- 현재 위치 기반 주간 옷차림 자동 추천, 도시 선택 시 해당 도시 기준으로 즉시 전환
+- One Call 7일 예보 우선, 실패 시 5일 예보를 일별로 요약해 fallback
+- 강수 확률/풍속을 카테고리 옆 배지로 표시, 추천 이미지·아이템은 무작위 섞기
 
 ## 🚀 시작하기
 
@@ -195,8 +204,8 @@ PORT=5000
 # 환경 모드 (development, production, test)
 NODE_ENV=development
 
-# TODO: 날씨 API 키 추가 예정
-# WEATHER_API_KEY=your_api_key_here
+# OpenWeather API 키 (필수)
+WEATHER_API_KEY=your_openweather_api_key
 ```
 
 **설정 방법:**
@@ -211,8 +220,8 @@ cp backend/.env.example backend/.env
 # 백엔드 API URL
 REACT_APP_API_URL=http://localhost:5000/api
 
-# 프론트엔드 포트
-PORT=3000
+# 네이버 지도 클라이언트 ID (필수)
+REACT_APP_NAVER_MAP_CLIENT_ID=your_naver_map_client_id
 ```
 
 **설정 방법:**
@@ -222,6 +231,15 @@ cp frontend/.env.example frontend/.env
 ```
 
 > ⚠️ **중요**: `.env` 파일은 절대 Git에 커밋하지 마세요! (이미 .gitignore에 포함됨)
+
+---
+
+## 🛡 보안 수칙
+
+- API 키·비밀번호 등 비밀 값은 **반드시 `.env`** 에만 보관하고 Git에 올리지 않습니다.
+- `WEATHER_API_KEY`, `REACT_APP_NAVER_MAP_CLIENT_ID`는 로컬 `.env`에서만 관리하고 배포 시 비밀 저장소를 사용하세요.
+- 인증서/키 파일(`*.pem`, `*.key`, `*.pfx` 등)과 데이터베이스 파일(`*.sqlite` 등)은 `.gitignore`에 추가되어 있습니다.
+- 개인 테스트 파일이나 로그(`*.log`, `coverage/`, `build/`)는 커밋하지 않습니다.
 
 ---
 
