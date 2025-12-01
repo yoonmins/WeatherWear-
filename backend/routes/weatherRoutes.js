@@ -129,4 +129,80 @@ router.get('/recommendation', (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/weather/korea
+ * @desc    한국 주요 도시 모두의 날씨 정보 가져오기
+ * @access  Public
+ */
+router.get('/korea', async (req, res) => {
+  try {
+    const citiesWeather = await weatherService.getAllKoreanCitiesWeather();
+
+    res.json({
+      success: true,
+      count: citiesWeather.length,
+      data: citiesWeather
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/weather/weekly/coords
+ * @desc    위도/경도 기준 7일치 옷차림 추천 가져오기
+ * @access  Public
+ */
+router.get('/weekly/coords', async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({
+        success: false,
+        error: '위도(lat)와 경도(lon)를 모두 입력해주세요.'
+      });
+    }
+
+    const weeklyPlan = await weatherService.getWeeklyOutfitPlanByCoords(
+      parseFloat(lat),
+      parseFloat(lon)
+    );
+
+    res.json({
+      success: true,
+      data: weeklyPlan
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/weather/weekly/:city
+ * @desc    선택한 도시의 7일치 옷차림 추천 가져오기
+ * @access  Public
+ */
+router.get('/weekly/:city', async (req, res) => {
+  try {
+    const { city } = req.params;
+    const weeklyPlan = await weatherService.getWeeklyOutfitPlanByCity(city);
+
+    res.json({
+      success: true,
+      data: weeklyPlan
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

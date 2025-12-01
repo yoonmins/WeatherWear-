@@ -8,6 +8,9 @@ const axios = require('axios');
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 const WEATHER_API_BASE_URL = 'https://api.openweathermap.org/data/2.5';
 const { getClothesByTempRange } = require('../example/clother');
+const axiosInstance = axios.create({
+  baseURL: WEATHER_API_BASE_URL
+});
 
 /**
  * 도시 이름으로 현재 날씨 정보 가져오기
@@ -20,7 +23,7 @@ async function getCurrentWeatherByCity(city) {
       throw new Error('WEATHER_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.');
     }
 
-    const response = await axios.get(`${WEATHER_API_BASE_URL}/weather`, {
+    const response = await axiosInstance.get('/weather', {
       params: {
         q: city,
         appid: WEATHER_API_KEY,
@@ -47,7 +50,7 @@ async function getCurrentWeatherByCoords(lat, lon) {
       throw new Error('WEATHER_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.');
     }
 
-    const response = await axios.get(`${WEATHER_API_BASE_URL}/weather`, {
+    const response = await axiosInstance.get('/weather', {
       params: {
         lat,
         lon,
@@ -74,7 +77,7 @@ async function getForecastByCity(city) {
       throw new Error('WEATHER_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.');
     }
 
-    const response = await axios.get(`${WEATHER_API_BASE_URL}/forecast`, {
+    const response = await axiosInstance.get('/forecast', {
       params: {
         q: city,
         appid: WEATHER_API_KEY,
@@ -84,6 +87,63 @@ async function getForecastByCity(city) {
     });
 
     return formatForecastData(response.data);
+  } catch (error) {
+    handleWeatherApiError(error);
+  }
+}
+
+/**
+ * 5일 날씨 예보 가져오기 (좌표)
+ * @param {number} lat - 위도
+ * @param {number} lon - 경도
+ * @returns {Promise<Object>} 예보 정보 객체
+ */
+async function getForecastByCoords(lat, lon) {
+  try {
+    if (!WEATHER_API_KEY) {
+      throw new Error('WEATHER_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.');
+    }
+
+    const response = await axiosInstance.get('/forecast', {
+      params: {
+        lat,
+        lon,
+        appid: WEATHER_API_KEY,
+        units: 'metric',
+        lang: 'kr'
+      }
+    });
+
+    return formatForecastData(response.data);
+  } catch (error) {
+    handleWeatherApiError(error);
+  }
+}
+
+/**
+ * 7일 일별 예보 가져오기 (One Call)
+ * @param {number} lat - 위도
+ * @param {number} lon - 경도
+ * @returns {Promise<Object>} 7일 예보
+ */
+async function getWeeklyForecastByCoords(lat, lon) {
+  try {
+    if (!WEATHER_API_KEY) {
+      throw new Error('WEATHER_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.');
+    }
+
+    const response = await axiosInstance.get('/onecall', {
+      params: {
+        lat,
+        lon,
+        exclude: 'current,minutely,hourly,alerts',
+        appid: WEATHER_API_KEY,
+        units: 'metric',
+        lang: 'kr'
+      }
+    });
+
+    return formatWeeklyForecastData(response.data);
   } catch (error) {
     handleWeatherApiError(error);
   }
@@ -169,6 +229,103 @@ function formatForecastData(data) {
       }
     }))
   };
+}
+
+/**
+ * 7일 일별 예보 데이터 포맷팅
+ * @param {Object} data - One Call API 응답 데이터
+ * @returns {Object} 포맷된 예보 정보
+ */
+function formatWeeklyForecastData(data) {
+  return {
+    timezone: data.timezone,
+    daily: (data.daily || []).map(item => ({
+      date: new Date(item.dt * 1000).toISOString(),
+      temperature: {
+        min: Math.round(item.temp.min),
+        max: Math.round(item.temp.max),
+        day: Math.round(item.temp.day),
+        night: Math.round(item.temp.night)
+      },
+      weather: {
+        main: item.weather[0].main,
+        description: item.weather[0].description,
+        icon: item.weather[0].icon,
+        iconUrl: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`
+      },
+      details: {
+        humidity: item.humidity,
+        windSpeed: item.wind_speed,
+        clouds: item.clouds
+      },
+      pop: Math.round((item.pop || 0) * 100)
+    }))
+  };
+}
+
+/**
+ * 5일(3시간 단위) 예보를 일별 요약으로 변환 (One Call 실패 시 사용)
+ */
+function buildDailySummaryFromForecast(forecastData) {
+  const byDate = new Map();
+
+  (forecastData.forecasts || []).forEach(item => {
+    const dateKey = item.datetime.slice(0, 10); // YYYY-MM-DD
+    const entry = byDate.get(dateKey) || {
+      temps: [],
+      hums: [],
+      winds: [],
+      pops: [],
+      descriptions: {}
+    };
+
+    entry.temps.push(item.temperature.current, item.temperature.min, item.temperature.max);
+    entry.hums.push(item.details.humidity);
+    entry.winds.push(item.details.windSpeed);
+    entry.pops.push(item.details.pop);
+
+    const desc = item.weather.description;
+    entry.descriptions[desc] = (entry.descriptions[desc] || 0) + 1;
+
+    byDate.set(dateKey, entry);
+  });
+
+  const sorted = Array.from(byDate.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
+  return sorted.map(([date, entry]) => {
+    const min = Math.round(Math.min(...entry.temps));
+    const max = Math.round(Math.max(...entry.temps));
+    const avg = Math.round((min + max) / 2);
+    const avgPop = Math.round(
+      entry.pops.reduce((sum, val) => sum + (Number.isFinite(val) ? val : 0), 0) / entry.pops.length
+    );
+    const avgWind = Number(
+      (entry.winds.reduce((sum, val) => sum + (Number.isFinite(val) ? val : 0), 0) / entry.winds.length).toFixed(1)
+    );
+    const avgHum = Math.round(
+      entry.hums.reduce((sum, val) => sum + (Number.isFinite(val) ? val : 0), 0) / entry.hums.length
+    );
+    const topDesc = Object.entries(entry.descriptions).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+    return {
+      date,
+      temperature: {
+        min,
+        max,
+        day: avg,
+        night: avg
+      },
+      weather: {
+        main: topDesc || 'Forecast',
+        description: topDesc || '예보 데이터 요약'
+      },
+      details: {
+        humidity: avgHum,
+        windSpeed: avgWind,
+        clouds: null
+      },
+      pop: avgPop
+    };
+  });
 }
 
 /**
@@ -334,10 +491,179 @@ function calculateColdRisk(temperature, windSpeed) {
   return 'LOW';
 }
 
+/**
+ * 한국 주요 도시 목록
+ */
+const KOREAN_CITIES = [
+  { name: 'Seoul', displayName: '서울', coords: { lat: 37.5665, lon: 126.9780 } },
+  { name: 'Busan', displayName: '부산', coords: { lat: 35.1796, lon: 129.0756 } },
+  { name: 'Incheon', displayName: '인천', coords: { lat: 37.4563, lon: 126.7052 } },
+  { name: 'Daegu', displayName: '대구', coords: { lat: 35.8714, lon: 128.6014 } },
+  { name: 'Daejeon', displayName: '대전', coords: { lat: 36.3504, lon: 127.3845 } },
+  { name: 'Gwangju', displayName: '광주', coords: { lat: 35.1595, lon: 126.8526 } },
+  { name: 'Ulsan', displayName: '울산', coords: { lat: 35.5384, lon: 129.3114 } },
+  { name: 'Suwon', displayName: '수원', coords: { lat: 37.2636, lon: 127.0286 } },
+  { name: 'Jeju', displayName: '제주', coords: { lat: 33.4996, lon: 126.5312 } },
+  { name: 'Chuncheon', displayName: '춘천', coords: { lat: 37.8813, lon: 127.7298 } },
+  { name: 'Gangneung', displayName: '강릉', coords: { lat: 37.7519, lon: 128.8761 } },
+  { name: 'Sokcho', displayName: '속초', coords: { lat: 38.2070, lon: 128.5910 } },
+  { name: 'Gyeongju', displayName: '경주', coords: { lat: 35.8562, lon: 129.2247 } },
+  { name: 'Jeonju', displayName: '전주', coords: { lat: 35.8242, lon: 127.1480 } },
+  { name: 'Yeosu', displayName: '여수', coords: { lat: 34.7604, lon: 127.6622 } },
+  { name: 'Cheongju', displayName: '청주', coords: { lat: 36.6424, lon: 127.4890 } },
+  { name: 'Pohang', displayName: '포항', coords: { lat: 36.0190, lon: 129.3435 } },
+  { name: 'Andong', displayName: '안동', coords: { lat: 36.5684, lon: 128.7294 } }
+];
+
+/**
+ * 한국 주요 도시 모두의 날씨 정보 가져오기
+ * @returns {Promise<Array>} 모든 도시의 날씨 정보 배열
+ */
+async function getAllKoreanCitiesWeather() {
+  try {
+    const weatherPromises = KOREAN_CITIES.map(city =>
+      getCurrentWeatherByCoords(city.coords.lat, city.coords.lon)
+        .then(data => ({
+          ...data,
+          displayName: city.displayName,
+          cityName: city.name,
+          clothingRecommendation: getClothingRecommendation(data.temperature.current)
+        }))
+        .catch(error => ({
+          cityName: city.name,
+          displayName: city.displayName,
+          error: error.message
+        }))
+    );
+
+    const results = await Promise.all(weatherPromises);
+    return results.filter(result => !result.error);
+  } catch (error) {
+    throw new Error(`한국 도시 날씨 정보를 가져오는 중 오류가 발생했습니다: ${error.message}`);
+  }
+}
+
+/**
+ * 도시 기준 7일치 예보 + 옷차림 추천
+ * @param {string} city - 도시 이름 (영문)
+ * @returns {Promise<Object>} 7일치 옷차림 플랜
+ */
+async function getWeeklyOutfitPlanByCity(city) {
+  const matchedCity = KOREAN_CITIES.find(
+    c => c.name.toLowerCase() === city.toLowerCase()
+  );
+
+  // 좌표 확보
+  let coordinates = matchedCity?.coords;
+  let displayName = matchedCity?.displayName || city;
+  let cityName = matchedCity?.name || city;
+
+  if (!coordinates) {
+    const current = await getCurrentWeatherByCity(city);
+    coordinates = current.location.coordinates;
+    displayName = current.location.name;
+    cityName = current.location.name;
+  }
+
+  let weekly = null;
+  let fallbackUsed = false;
+
+  try {
+    weekly = await getWeeklyForecastByCoords(coordinates.lat, coordinates.lon);
+  } catch (error) {
+    const forecast = await getForecastByCity(cityName);
+    const dailySummaries = buildDailySummaryFromForecast(forecast);
+    weekly = {
+      timezone: forecast.location?.country || 'KST',
+      daily: dailySummaries
+    };
+    fallbackUsed = true;
+  }
+
+  if (!weekly?.daily?.length) {
+    throw new Error('주간 예보 데이터를 불러오지 못했습니다.');
+  }
+
+  const days = weekly.daily.slice(0, 7).map(day => {
+    const avgTemp = Math.round((day.temperature.min + day.temperature.max) / 2);
+    return {
+      ...day,
+      averageTemperature: avgTemp,
+      clothingRecommendation: getClothingRecommendation(avgTemp)
+    };
+  });
+
+  return {
+    cityName,
+    displayName,
+    coordinates,
+    timezone: weekly.timezone,
+    days,
+    source: fallbackUsed ? 'forecast' : 'onecall'
+  };
+}
+
+/**
+ * 좌표 기준 7일치 예보 + 옷차림 추천
+ * @param {number} lat
+ * @param {number} lon
+ */
+async function getWeeklyOutfitPlanByCoords(lat, lon) {
+  if (!lat || !lon) {
+    throw new Error('위도/경도가 필요합니다.');
+  }
+
+  // 현재 날씨로 위치명 확보
+  const current = await getCurrentWeatherByCoords(lat, lon);
+
+  let weekly = null;
+  let fallbackUsed = false;
+
+  try {
+    weekly = await getWeeklyForecastByCoords(lat, lon);
+  } catch (error) {
+    const forecast = await getForecastByCoords(lat, lon);
+    const dailySummaries = buildDailySummaryFromForecast(forecast);
+    weekly = {
+      timezone: forecast.location?.country || 'KST',
+      daily: dailySummaries
+    };
+    fallbackUsed = true;
+  }
+
+  if (!weekly?.daily?.length) {
+    throw new Error('주간 예보 데이터를 불러오지 못했습니다.');
+  }
+
+  const days = weekly.daily.slice(0, 7).map(day => {
+    const avgTemp = Math.round((day.temperature.min + day.temperature.max) / 2);
+    return {
+      ...day,
+      averageTemperature: avgTemp,
+      clothingRecommendation: getClothingRecommendation(avgTemp)
+    };
+  });
+
+  return {
+    cityName: current.location.name,
+    displayName: current.location.name,
+    coordinates: { lat, lon },
+    timezone: weekly.timezone,
+    days,
+    source: fallbackUsed ? 'forecast' : 'onecall'
+  };
+}
+
 module.exports = {
   getCurrentWeatherByCity,
   getCurrentWeatherByCoords,
   getForecastByCity,
+  getForecastByCoords,
   getClothingRecommendation,
-  getClothingRecommendationAdvanced
+  getClothingRecommendationAdvanced,
+  getAllKoreanCitiesWeather,
+  getWeeklyForecastByCoords,
+  getWeeklyOutfitPlanByCity,
+  getWeeklyOutfitPlanByCoords,
+  KOREAN_CITIES
 };
