@@ -410,7 +410,7 @@ function App() {
   const [userCoords, setUserCoords] = useState(null);
   const [geoError, setGeoError] = useState(null);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+  const API_URL = process.env.REACT_APP_API_URL || '/api';
 
   const fetchWeatherData = async () => {
     try {
@@ -456,7 +456,7 @@ function App() {
 
   useEffect(() => {
     const fetchWeeklyPlan = async () => {
-        // 우선순위: 선택한 도시 > 현재 위치
+      // 우선순위: 선택한 도시 > 현재 위치
       const hasSelectedCity = Boolean(selectedCity);
       const hasCoords = Boolean(userCoords);
 
@@ -664,7 +664,7 @@ function App() {
                                 <TempMin>평균 {day.averageTemperature ?? '-'}°</TempMin>
                               </TempInline>
                             </TempStack>
-                          <RecStack>
+                            <RecStack>
                               <RecHeader>
                                 <RecCategory>{day.clothingRecommendation?.category || '추천 준비 중'}</RecCategory>
                                 <RecMeta>

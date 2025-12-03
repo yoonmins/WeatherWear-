@@ -298,7 +298,7 @@ const InlineCategory = styled.span`
 
 const ClothingCard = ({ cityData, onClose, weeklyPlan }) => {
   const { displayName, temperature, weather, clothingRecommendation, details } = cityData || {};
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+  const apiUrl = process.env.REACT_APP_API_URL || '/api';
 
   const shuffledImages = useMemo(() => {
     const images = clothingRecommendation?.images || [];
