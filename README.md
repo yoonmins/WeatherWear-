@@ -456,16 +456,134 @@ Access to fetch has been blocked by CORS policy
 
 ---
 
+## 🚀 Vercel 배포 가이드
+
+### 사전 준비
+
+1. **Vercel 계정 생성**
+   - [Vercel](https://vercel.com) 방문 후 GitHub 계정으로 가입
+
+2. **필수 API 키 준비**
+   - OpenWeather API 키 ([발급 방법](API_KEY_SETUP.md))
+   - 네이버 지도 클라이언트 ID
+
+### 배포 단계
+
+#### 1. GitHub 저장소 연결
+
+```bash
+# GitHub에 푸시
+git add .
+git commit -m "Add Vercel deployment configuration"
+git push origin main
+```
+
+#### 2. Vercel 프로젝트 생성
+
+1. Vercel 대시보드에서 **"New Project"** 클릭
+2. GitHub 저장소 선택 및 Import
+3. Framework Preset: **"Other"** 선택
+4. Build Settings는 기본값 유지 (vercel.json에서 자동 설정됨)
+
+#### 3. 환경 변수 설정
+
+Vercel 대시보드 → Settings → Environment Variables에서 다음 변수 추가:
+
+| Variable Name | Value | Environment |
+|---------------|-------|-------------|
+| `NODE_ENV` | `production` | Production |
+| `WEATHER_API_KEY` | `your_api_key` | Production |
+| `REACT_APP_NAVER_MAP_CLIENT_ID` | `your_client_id` | Production |
+| `ALLOWED_ORIGINS` | `https://your-domain.vercel.app` | Production |
+| `RATE_LIMIT_MAX` | `100` | Production |
+
+> ⚠️ **중요**: 배포 후 실제 Vercel 도메인으로 `ALLOWED_ORIGINS`를 업데이트하세요!
+
+#### 4. 배포 실행
+
+**"Deploy"** 버튼 클릭 → 자동 빌드 및 배포 시작
+
+#### 5. 배포 확인
+
+배포 완료 후 제공되는 URL로 접속하여 다음 확인:
+
+```bash
+# Health check
+curl https://your-domain.vercel.app/api/health
+
+# API 엔드포인트 확인
+curl https://your-domain.vercel.app/api
+```
+
+### 로컬에서 Vercel 테스트
+
+```bash
+# Vercel CLI 설치
+npm i -g vercel
+
+# 로컬에서 Vercel 환경 시뮬레이션
+vercel dev
+```
+
+---
+
+## 🔒 보안 체크리스트
+
+배포 전 다음 보안 요소들이 모두 적용되었는지 확인하세요:
+
+### ✅ 적용된 보안 기능
+
+- [x] **HTTPS 강제**: Vercel이 자동으로 SSL 인증서 적용
+- [x] **보안 헤더**: 
+  - Content Security Policy (CSP)
+  - X-Frame-Options (Clickjacking 방지)
+  - X-Content-Type-Options (MIME 스니핑 방지)
+  - X-XSS-Protection
+  - Strict-Transport-Security (HSTS)
+  - Referrer-Policy
+- [x] **CORS 제한**: `ALLOWED_ORIGINS` 환경 변수로 허용 도메인 제한
+- [x] **Rate Limiting**: DDoS 방지를 위한 요청 속도 제한 (15분당 100회)
+- [x] **입력 검증**: XSS 및 SQL Injection 방지를 위한 입력 sanitization
+- [x] **환경 변수 보호**: API 키 및 비밀 정보는 `.env` 파일로 관리 (Git 제외)
+
+### 📋 배포 후 추가 권장 사항
+
+1. **도메인 설정**
+   ```
+   Vercel Dashboard → Domains → Add Domain
+   커스텀 도메인 연결 후 ALLOWED_ORIGINS 업데이트
+   ```
+
+2. **모니터링 설정**
+   - Vercel Analytics 활성화
+   - Error Logging 확인
+
+3. **정기적인 보안 업데이트**
+   ```bash
+   # 의존성 취약점 검사
+   npm audit
+   
+   # 자동 수정
+   npm audit fix
+   ```
+
+4. **API 키 로테이션**
+   - 정기적으로 API 키 갱신
+   - 의심스러운 활동 발견 시 즉시 키 변경
+
+---
+
 ## 🚧 다음 개발 계획
 
-- [ ] 날씨 API 연동 (OpenWeatherMap 등)
-- [ ] 위치 기반 날씨 정보 가져오기
-- [ ] 온도별 옷차림 추천 알고리즘
+- [x] 날씨 API 연동 (OpenWeatherMap)
+- [x] 위치 기반 날씨 정보 가져오기
+- [x] 온도별 옷차림 추천 알고리즘
+- [x] Vercel 배포 설정
 - [ ] 사용자 인증 시스템 (JWT)
 - [ ] 데이터베이스 연동 (MongoDB/PostgreSQL)
 - [ ] 사용자 선호도 저장 기능
-- [ ] 반응형 UI 디자인
 - [ ] PWA (Progressive Web App) 지원
+
 
 ---
 
